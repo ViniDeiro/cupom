@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { adminAPI } from '../../utils/api';
+import { adminAPI } from '../../services/apiUtils';
 import toast from 'react-hot-toast';
-import { Plus, Edit2, Trash2, DollarSign, Percent, Calendar } from 'lucide-react';
+import { Plus, Edit2, Trash2, DollarSign, Percent, Calendar, BarChart2 } from 'lucide-react';
 
 function AdminCoupons() {
   const [coupons, setCoupons] = useState([]);
@@ -117,13 +117,22 @@ function AdminCoupons() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Gestão de Cupons</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
-        >
-          <Plus size={20} />
-          Novo Tipo de Cupom
-        </button>
+        <div className="flex gap-3">
+          <a
+            href="/admin/relatorios/cupons"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <BarChart2 size={20} />
+            Relatório de Cupons
+          </a>
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Novo Tipo de Cupom
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

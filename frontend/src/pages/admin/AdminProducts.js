@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Loading from '../../components/Loading';
 import toast from 'react-hot-toast';
-import { productsAPI } from '../../utils/api';
+import { productsAPI } from '../../services/apiUtils';
+import ProductForm from '../../components/ProductForm';
 
 function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -54,18 +55,32 @@ function AdminProducts() {
     setShowModal(true);
   };
 
-  const handleDelete = (productId) => {
+  const handleDelete = async (productId) => {
     if (window.confirm('Tem certeza que deseja excluir este produto?')) {
-      setProducts(products.filter(p => p.id !== productId));
-      toast.success('Produto excluído com sucesso!');
+      try {
+        await productsAPI.deleteProduct(productId);
+        await fetchProducts(); // Recarregar a lista após excluir
+        toast.success('Produto excluído com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir produto:', error);
+        toast.error('Erro ao excluir produto: ' + (error.response?.data?.erro || error.message));
+      }
     }
   };
 
-  const handleToggleStatus = (productId) => {
-    setProducts(products.map(p => 
-      p.id === productId ? { ...p, active: !p.active } : p
-    ));
-    toast.success('Status do produto atualizado!');
+  const handleToggleStatus = async (productId) => {
+    try {
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+      
+      const newStatus = !product.active;
+      await productsAPI.updateProduct(productId, { ativo: newStatus });
+      await fetchProducts(); // Recarregar a lista após atualizar
+      toast.success('Status do produto atualizado!');
+    } catch (error) {
+      console.error('Erro ao atualizar status do produto:', error);
+      toast.error('Erro ao atualizar status: ' + (error.response?.data?.erro || error.message));
+    }
   };
 
   if (loading) {
@@ -161,33 +176,36 @@ function AdminProducts() {
         </table>
       </div>
 
-      {/* Modal seria implementado aqui */}
+      {/* Modal de criação/edição de produto */}
       {showModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 w-96">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">
               {editingProduct ? 'Editar Produto' : 'Novo Produto'}
             </h3>
-            <p className="text-gray-600 mb-4">
-              Formulário de produto seria implementado aqui.
-            </p>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setShowModal(false)}
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
+            <ProductForm 
+              product={editingProduct} 
+              onSave={async (productData) => {
+                try {
+                  setLoading(true);
+                  if (editingProduct) {
+                    await productsAPI.updateProduct(editingProduct.id, productData);
+                    toast.success('Produto atualizado com sucesso!');
+                  } else {
+                    await productsAPI.createProduct(productData);
+                    toast.success('Produto criado com sucesso!');
+                  }
+                  await fetchProducts(); // Recarregar a lista após salvar
                   setShowModal(false);
-                  toast.success('Produto salvo com sucesso!');
-                }}
-                className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
-              >
-                Salvar
-              </button>
-            </div>
+                } catch (error) {
+                  console.error('Erro ao salvar produto:', error);
+                  toast.error('Erro ao salvar produto: ' + (error.response?.data?.erro || error.message));
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              onCancel={() => setShowModal(false)}
+            />
           </div>
         </div>
       )}

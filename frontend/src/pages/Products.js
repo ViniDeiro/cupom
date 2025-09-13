@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
 import { Search, Filter, Grid, List, SlidersHorizontal } from 'lucide-react';
-import { productsAPI, couponsAPI } from '../utils/api';
+import { productsAPI, couponsAPI } from '../services/apiUtils';
 import ProductCard from '../components/ProductCard';
 import Loading from '../components/Loading';
 import toast from 'react-hot-toast';

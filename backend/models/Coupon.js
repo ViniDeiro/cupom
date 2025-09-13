@@ -23,6 +23,14 @@ const Coupon = sequelize.define('Coupon', {
       key: 'id'
     }
   },
+  tipo_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'tipos_cupons',
+      key: 'id'
+    }
+  },
   valor_pago: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
@@ -64,6 +72,16 @@ const Coupon = sequelize.define('Coupon', {
   ativo: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  status_pagamento: {
+    type: DataTypes.ENUM('pendente', 'aprovado', 'rejeitado'),
+    allowNull: true,
+    defaultValue: 'pendente'
+  },
+  mercado_pago_payment_id: {
+    type: DataTypes.STRING,
+    allowNull: true
+    // Removido unique: true para permitir múltiplos cupons com mesmo payment_id em testes
   }
 }, {
   tableName: 'cupons',
@@ -83,8 +101,10 @@ Coupon.gerarCodigo = function() {
 // Método para verificar se o cupom é válido
 Coupon.prototype.isValido = function() {
   const agora = new Date();
+  // Cupom é válido se não foi usado, está ativo (ou pagamento aprovado) e não expirou
+  const statusValido = this.ativo || this.status_pagamento === 'aprovado';
   return !this.usado && 
-         this.ativo && 
+         statusValido && 
          agora <= this.data_validade;
 };
 

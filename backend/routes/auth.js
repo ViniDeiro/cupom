@@ -71,49 +71,102 @@ router.post('/register', [
   }
 });
 
-// Login de usuário
+// Login unificado (usuário e administrador)
 router.post('/login', [
   body('email').isEmail().normalizeEmail().withMessage('Email inválido'),
-  body('senha').notEmpty().withMessage('Senha é obrigatória')
+  body('senha').optional().notEmpty().withMessage('Senha é obrigatória'),
+  body('password').optional().notEmpty().withMessage('Password é obrigatório')
 ], async (req, res) => {
   try {
+    console.log('🔐 Login - Iniciando processo de login');
+    console.log('🔐 Login - Dados recebidos:', { email: req.body.email, senha: req.body.senha ? '[PRESENTE]' : '[AUSENTE]' });
+    
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
+    
+    // Verificar se pelo menos uma senha foi fornecida
+    if (!req.body.senha && !req.body.password) {
+      console.log('❌ Login - Nenhuma senha fornecida');
+      return res.status(400).json({
+        erro: 'Senha é obrigatória'
+      });
+    }
+    
+    // Filtrar erros relacionados a senha/password já que fazemos verificação manual
+    const filteredErrors = errors.array().filter(error => 
+      error.path !== 'senha' && error.path !== 'password'
+    );
+    
+    if (filteredErrors.length > 0) {
+      console.log('❌ Login - Dados inválidos:', filteredErrors);
       return res.status(400).json({
         erro: 'Dados inválidos',
-        detalhes: errors.array()
+        detalhes: filteredErrors
       });
     }
 
-    const { email, senha } = req.body;
+    const { email, senha, password } = req.body;
+    const senhaFinal = senha || password; // Aceita tanto 'senha' quanto 'password'
+    console.log('🔐 Login - Email normalizado:', email);
+    console.log('🔐 Login - Senha recebida como:', senha ? 'senha' : password ? 'password' : 'nenhuma');
 
-    // Buscar usuário
+    // Primeiro tenta buscar como usuário
+    console.log('🔍 Login - Buscando usuário com email:', email);
     const usuario = await User.findOne({ where: { email } });
-    if (!usuario || !usuario.ativo) {
-      return res.status(401).json({
-        erro: 'Credenciais inválidas'
-      });
+    console.log('👤 Login - Usuário encontrado:', usuario ? `ID: ${usuario.id}, Ativo: ${usuario.ativo}` : 'Não encontrado');
+    
+    if (usuario && usuario.ativo) {
+      console.log('🔐 Login - Verificando senha do usuário...');
+      // Verificar senha do usuário
+      const senhaValida = await usuario.verificarSenha(senhaFinal);
+      console.log('🔐 Login - Senha válida:', senhaValida);
+      
+      if (senhaValida) {
+        console.log('✅ Login - Gerando token para usuário...');
+        // Gerar token para usuário
+        const token = gerarToken(usuario.id, 'user');
+        console.log('✅ Login - Token gerado com sucesso para usuário:', usuario.email);
+
+        return res.json({
+          mensagem: 'Login realizado com sucesso',
+          token,
+          usuario
+        });
+      }
     }
 
-    // Verificar senha
-    const senhaValida = await usuario.verificarSenha(senha);
-    if (!senhaValida) {
-      return res.status(401).json({
-        erro: 'Credenciais inválidas'
-      });
+    // Se não encontrou usuário ou senha inválida, tenta como administrador
+    console.log('🔍 Login - Buscando administrador com email:', email);
+    const admin = await Admin.findOne({ where: { email } });
+    console.log('👨‍💼 Login - Admin encontrado:', admin ? `ID: ${admin.id}, Ativo: ${admin.ativo}` : 'Não encontrado');
+    
+    if (admin && admin.ativo) {
+      console.log('🔐 Login - Verificando senha do administrador...');
+      // Verificar senha do administrador
+      const senhaValida = await admin.verificarSenha(senhaFinal);
+      console.log('🔐 Login - Senha admin válida:', senhaValida);
+      
+      if (senhaValida) {
+        console.log('✅ Login - Gerando token para administrador...');
+        // Gerar token para administrador
+        const token = gerarToken(admin.id, 'admin');
+        console.log('✅ Login - Token gerado com sucesso para admin:', admin.email);
+
+        return res.json({
+          mensagem: 'Login administrativo realizado com sucesso',
+          token,
+          admin
+        });
+      }
     }
 
-    // Gerar token
-    const token = gerarToken(usuario.id);
-
-    res.json({
-      mensagem: 'Login realizado com sucesso',
-      token,
-      usuario
+    // Se chegou aqui, não encontrou usuário ou admin válido
+    console.log('❌ Login - Credenciais inválidas para email:', email);
+    return res.status(401).json({
+      erro: 'Credenciais inválidas'
     });
 
   } catch (error) {
-    console.error('Erro no login:', error);
+    console.error('❌ Login - Erro no login:', error);
     res.status(500).json({
       erro: 'Erro interno do servidor'
     });

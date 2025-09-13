@@ -6,28 +6,6 @@ const paymentService = require('../services/paymentService');
 const { sequelize } = require('../config/database');
 const rateLimit = require('express-rate-limit');
 
-// Rate limiting para pagamentos
-const paymentLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // máximo 5 tentativas de pagamento por IP
-  message: {
-    erro: 'Muitas tentativas de pagamento. Tente novamente em 15 minutos.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-// Rate limiting para webhooks
-const webhookLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minuto
-  max: 100, // máximo 100 webhooks por minuto
-  message: {
-    erro: 'Muitas requisições de webhook'
-  }
-});
-
-const router = express.Router();
-
 // Função para validar CPF
 const isValidCPF = (cpf) => {
   const cleanCPF = cpf.replace(/\D/g, '');
@@ -54,6 +32,28 @@ const isValidCPF = (cpf) => {
   
   return digit1 === parseInt(cleanCPF[9]) && digit2 === parseInt(cleanCPF[10]);
 };
+
+// Rate limiting para pagamentos
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // máximo 5 tentativas de pagamento por IP
+  message: {
+    erro: 'Muitas tentativas de pagamento. Tente novamente em 15 minutos.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Rate limiting para webhooks
+const webhookLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minuto
+  max: 100, // máximo 100 webhooks por minuto
+  message: {
+    erro: 'Muitas requisições de webhook'
+  }
+});
+
+const router = express.Router();
 
 // Criar preferência de pagamento (checkout)
 router.post('/create-preference', authUser, [
@@ -259,6 +259,22 @@ router.post('/generate-pix', paymentLimiter, authUser, [
       });
     }
 
+    // Verificar se usuário tem CPF cadastrado
+    if (!usuario.cpf) {
+      await transaction.rollback();
+      return res.status(400).json({
+        erro: 'CPF não cadastrado. Por favor, atualize seu perfil com um CPF válido para gerar PIX.'
+      });
+    }
+
+    // Validar CPF
+    if (!isValidCPF(usuario.cpf)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        erro: 'CPF inválido cadastrado. Por favor, atualize seu perfil com um CPF válido.'
+      });
+    }
+
     // Preparar dados do PIX
     const dadosPix = {
       transaction_amount: pedido.total_final,
@@ -269,7 +285,7 @@ router.post('/generate-pix', paymentLimiter, authUser, [
         last_name: usuario.nome.split(' ').slice(1).join(' ') || 'Silva',
         identification: {
           type: 'CPF',
-          number: '11111111111' // Em produção, capturar CPF real do usuário
+          number: usuario.cpf // Usar CPF real do usuário
         }
       },
       external_reference: pedido.id.toString()

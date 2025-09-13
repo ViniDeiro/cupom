@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI } from '../utils/api';
+import { authAPI } from '../services/apiUtils';
 import toast from 'react-hot-toast';
 
 const AuthContext = createContext();
@@ -40,23 +40,40 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Função de login para usuários
+  // Função de login unificada para usuários e administradores
   const loginUser = async (email, senha) => {
     try {
-      const response = await authAPI.login({ email, senha });
-      const { token, usuario } = response.data;
+      // Primeiro tenta login como usuário normal
+      try {
+        const response = await authAPI.login({ email, senha });
+        const { token, usuario } = response.data;
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(usuario));
-      localStorage.removeItem('admin'); // Remover dados de admin se existirem
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(usuario));
+        localStorage.removeItem('admin'); // Remover dados de admin se existirem
 
-      setUser(usuario);
-      setAdmin(null);
-      
-      toast.success(`Bem-vindo(a), ${usuario.nome}!`);
-      return { success: true };
+        setUser(usuario);
+        setAdmin(null);
+        
+        toast.success(`Bem-vindo(a), ${usuario.nome}!`);
+        return { success: true, isAdmin: false };
+      } catch (userError) {
+        // Se falhar como usuário, tenta como administrador
+        const response = await authAPI.adminLogin({ email, senha });
+        const { token, admin: adminData } = response.data;
+
+        localStorage.setItem('token', token);
+        localStorage.setItem('admin', JSON.stringify(adminData));
+        localStorage.removeItem('user'); // Remover dados de usuário se existirem
+
+        setAdmin(adminData);
+        setUser(null);
+        
+        toast.success(`Bem-vindo(a), Admin ${adminData.nome}!`);
+        return { success: true, isAdmin: true };
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.erro || 'Erro ao fazer login';
+      const errorMessage = error.response?.data?.erro || 'Credenciais inválidas';
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }

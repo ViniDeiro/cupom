@@ -14,14 +14,15 @@ import {
   Gift,
   CreditCard,
   FileText,
-  Settings
+  Settings,
+  Search
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { couponsAPI } from '../utils/api';
+import { couponsAPI } from '../services/apiUtils';
 import { useQuery } from 'react-query';
 
 const Layout = () => {
-  const { isAuthenticated, isUser, getCurrentUserName, logout } = useAuth();
+  const { isAuthenticated, isUser, isAdmin, getCurrentUserName, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const location = useLocation();
@@ -40,11 +41,22 @@ const Layout = () => {
   const isSpecialDay = specialDayData?.data?.dia_especial;
   const specialDayInfo = specialDayData?.data?.evento;
 
-  // Carregar carrinho do localStorage
+  // Carregar carrinho do localStorage e atualizar quando modificado
   useEffect(() => {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const count = cart.reduce((total, item) => total + item.quantidade, 0);
-    setCartCount(count);
+    const loadCart = () => {
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const count = cart.reduce((total, item) => total + item.quantidade, 0);
+      setCartCount(count);
+    };
+    
+    // Carregar inicialmente
+    loadCart();
+    
+    // Adicionar event listener para atualizações do carrinho
+    window.addEventListener('cartUpdated', loadCart);
+    
+    // Cleanup
+    return () => window.removeEventListener('cartUpdated', loadCart);
   }, []);
 
   // Fechar menu mobile quando rota mudar
@@ -65,6 +77,8 @@ const Layout = () => {
   const navLinks = [
     { to: '/', label: 'Início', icon: Home },
     { to: '/produtos', label: 'Produtos', icon: Package },
+    { to: '/comprar-cupons', label: 'Cupons', icon: Tag },
+    { to: '/rastreamento', label: 'Rastreamento', icon: Search },
     { to: '/sobre', label: 'Sobre', icon: FileText }
   ];
 
@@ -172,6 +186,15 @@ const Layout = () => {
                             </Link>
                           );
                         })}
+                        {isAdmin() && (
+                          <Link
+                            to="/admin/dashboard"
+                            className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600"
+                          >
+                            <Settings size={16} />
+                            <span>Painel Administrativo</span>
+                          </Link>
+                        )}
                         <hr className="my-1" />
                         <button
                           onClick={handleLogout}
@@ -261,6 +284,16 @@ const Layout = () => {
                       </Link>
                     );
                   })}
+                  
+                  {isAdmin() && (
+                    <Link
+                      to="/admin/dashboard"
+                      className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-gray-600 hover:text-primary-600 hover:bg-gray-50"
+                    >
+                      <Settings size={16} />
+                      <span>Painel Administrativo</span>
+                    </Link>
+                  )}
                   
                   <button
                     onClick={handleLogout}

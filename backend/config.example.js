@@ -27,6 +27,12 @@ module.exports = {
     admin: {
       email: 'admin@loja.com',
       password: 'admin123'
+    },
+    correios: {
+      empresa: '', // Código da empresa nos Correios (opcional)
+      senha: '', // Senha da empresa nos Correios (opcional)
+      token: '', // Token para rastreamento (opcional)
+      cepOrigem: '01310-100' // CEP de origem padrão da loja
     }
   }
 };

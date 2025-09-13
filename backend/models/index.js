@@ -2,6 +2,7 @@ const User = require('./User');
 const Admin = require('./Admin');
 const Product = require('./Product');
 const Coupon = require('./Coupon');
+const CouponType = require('./CouponType');
 const SpecialDay = require('./SpecialDay');
 const Order = require('./Order');
 const OrderItem = require('./OrderItem');
@@ -32,11 +33,16 @@ OrderItem.belongsTo(Order, { foreignKey: 'pedido_id', as: 'pedido' });
 Product.hasMany(OrderItem, { foreignKey: 'produto_id', as: 'itens_pedido' });
 OrderItem.belongsTo(Product, { foreignKey: 'produto_id', as: 'produto' });
 
+// CouponType - Coupon (1:N)
+CouponType.hasMany(Coupon, { foreignKey: 'tipo_id', as: 'cupons' });
+Coupon.belongsTo(CouponType, { foreignKey: 'tipo_id', as: 'tipo' });
+
 module.exports = {
   User,
   Admin,
   Product,
   Coupon,
+  CouponType,
   SpecialDay,
   Order,
   OrderItem

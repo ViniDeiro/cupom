@@ -9,40 +9,13 @@ const router = express.Router();
 // Listar tipos de cupons disponíveis para compra
 router.get('/tipos', async (req, res) => {
   try {
-    const tiposCupons = [
-      {
-        id: 1,
-        nome: 'Cupom Bronze',
-        desconto: 10,
-        preco: 25.00,
-        descricao: 'Desconto de 10% em produtos selecionados',
-        validade_dias: 90
-      },
-      {
-        id: 2,
-        nome: 'Cupom Prata',
-        desconto: 20,
-        preco: 45.00,
-        descricao: 'Desconto de 20% em produtos selecionados',
-        validade_dias: 90
-      },
-      {
-        id: 3,
-        nome: 'Cupom Ouro',
-        desconto: 30,
-        preco: 65.00,
-        descricao: 'Desconto de 30% em produtos selecionados',
-        validade_dias: 90
-      },
-      {
-        id: 4,
-        nome: 'Cupom Diamante',
-        desconto: 50,
-        preco: 100.00,
-        descricao: 'Desconto de 50% em produtos selecionados',
-        validade_dias: 90
-      }
-    ];
+    const { CouponType } = require('../models');
+    
+    // Buscar tipos de cupons ativos
+    const tiposCupons = await CouponType.findAll({
+      where: { ativo: true },
+      order: [['desconto', 'ASC']]
+    });
 
     res.json(tiposCupons);
   } catch (error) {
@@ -55,7 +28,7 @@ router.get('/tipos', async (req, res) => {
 
 // Comprar cupom
 router.post('/comprar', authUser, [
-  body('tipo_cupom_id').isInt({ min: 1, max: 4 }).withMessage('Tipo de cupom inválido'),
+  body('tipo_cupom_id').isInt({ min: 1 }).withMessage('Tipo de cupom inválido'),
   body('forma_pagamento').isIn(['pix', 'cartao', 'boleto']).withMessage('Forma de pagamento inválida')
 ], async (req, res) => {
   try {
@@ -70,15 +43,15 @@ router.post('/comprar', authUser, [
     const { tipo_cupom_id, forma_pagamento } = req.body;
     const usuario = req.user;
 
-    // Configurações dos tipos de cupons
-    const configCupons = {
-      1: { desconto: 10, preco: 25.00, nome: 'Bronze' },
-      2: { desconto: 20, preco: 45.00, nome: 'Prata' },
-      3: { desconto: 30, preco: 65.00, nome: 'Ouro' },
-      4: { desconto: 50, preco: 100.00, nome: 'Diamante' }
-    };
-
-    const configCupom = configCupons[tipo_cupom_id];
+    // Buscar tipo de cupom no banco de dados
+    const { CouponType } = require('../models');
+    const tipoCupom = await CouponType.findByPk(tipo_cupom_id);
+    
+    if (!tipoCupom || !tipoCupom.ativo) {
+      return res.status(404).json({
+        erro: 'Tipo de cupom não encontrado ou inativo'
+      });
+    }
     
     // Gerar código único
     let codigo;
@@ -89,16 +62,17 @@ router.post('/comprar', authUser, [
       codigoExiste = !!cupomExistente;
     }
 
-    // Calcular data de validade (90 dias)
+    // Calcular data de validade com base nos dias definidos no tipo de cupom
     const dataValidade = new Date();
-    dataValidade.setDate(dataValidade.getDate() + 90);
+    dataValidade.setDate(dataValidade.getDate() + tipoCupom.validade_dias);
 
     // Criar cupom
     const cupom = await Coupon.create({
       codigo,
       usuario_id: usuario.id,
-      valor_pago: configCupom.preco,
-      desconto_percentual: configCupom.desconto,
+      tipo_id: tipoCupom.id,
+      valor_pago: tipoCupom.preco,
+      desconto_percentual: tipoCupom.desconto,
       data_validade: dataValidade
     });
 
@@ -116,7 +90,7 @@ router.post('/comprar', authUser, [
         codigo: cupom.codigo,
         desconto: cupom.desconto_percentual,
         validade: cupom.data_validade,
-        tipo: configCupom.nome
+        tipo: tipoCupom.nome
       },
       email_enviado: resultadoEmail.sucesso
     });
@@ -147,7 +121,9 @@ router.get('/meus-cupons', authUser, async (req, res) => {
       usado: cupom.usado,
       data_uso: cupom.data_uso,
       valido: cupom.isValido(),
-      ativo: cupom.ativo
+      ativo: cupom.ativo,
+      status_pagamento: cupom.status_pagamento || 'aprovado', // Para cupons antigos sem status
+      mercado_pago_payment_id: cupom.mercado_pago_payment_id
     }));
 
     res.json({

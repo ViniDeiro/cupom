@@ -34,8 +34,13 @@ const Login = () => {
       const result = await loginUser(data.email, data.senha);
       
       if (result.success) {
-        const from = location.state?.from?.pathname || '/minha-conta';
-        navigate(from, { replace: true });
+        // Redirecionar com base no tipo de usuário
+        if (result.isAdmin) {
+          navigate('/admin/dashboard', { replace: true });
+        } else {
+          const from = location.state?.from?.pathname || '/minha-conta';
+          navigate(from, { replace: true });
+        }
       }
     } catch (error) {
       console.error('Erro no login:', error);
@@ -176,15 +181,11 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Link para admin */}
+        {/* Nota sobre login único */}
         <div className="text-center pt-8 border-t border-gray-200">
-          <p className="text-sm text-gray-500 mb-2">Acesso administrativo</p>
-          <Link
-            to="/admin/login"
-            className="text-sm text-primary-600 hover:text-primary-500 font-medium"
-          >
-            Login de Administrador
-          </Link>
+          <p className="text-sm text-gray-500 mb-2">
+            Este sistema possui login único para usuários e administradores
+          </p>
         </div>
       </div>
     </div>

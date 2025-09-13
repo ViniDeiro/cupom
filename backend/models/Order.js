@@ -58,7 +58,7 @@ const Order = sequelize.define('Order', {
   },
   endereco_entrega: {
     type: DataTypes.JSON,
-    allowNull: false
+    allowNull: true
   },
   observacoes: {
     type: DataTypes.TEXT

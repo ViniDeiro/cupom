@@ -12,26 +12,36 @@ try {
 // Middleware para autenticar usuários
 const authUser = async (req, res, next) => {
   try {
+    console.log('🔐 AuthUser - Verificando autenticação...');
     const token = req.header('Authorization')?.replace('Bearer ', '');
+    console.log('🔐 AuthUser - Token recebido:', token ? 'Presente' : 'Ausente');
     
     if (!token) {
+      console.log('❌ AuthUser - Token não fornecido');
       return res.status(401).json({ 
         erro: 'Token de acesso requerido' 
       });
     }
 
+    console.log('🔐 AuthUser - Verificando token JWT...');
     const decoded = jwt.verify(token, config.development.jwt.secret);
+    console.log('🔐 AuthUser - Token decodificado, ID do usuário:', decoded.id);
+    
     const user = await User.findByPk(decoded.id);
+    console.log('🔐 AuthUser - Usuário encontrado:', user ? user.email : 'Não encontrado');
 
     if (!user || !user.ativo) {
+      console.log('❌ AuthUser - Usuário inválido ou inativo');
       return res.status(401).json({ 
         erro: 'Token inválido ou usuário inativo' 
       });
     }
 
+    console.log('✅ AuthUser - Autenticação bem-sucedida para:', user.email);
     req.user = user;
     next();
   } catch (error) {
+    console.log('❌ AuthUser - Erro na autenticação:', error.message);
     res.status(401).json({ 
       erro: 'Token inválido' 
     });

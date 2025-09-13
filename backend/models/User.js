@@ -37,6 +37,15 @@ const User = sequelize.define('User', {
       len: [10, 15]
     }
   },
+  cpf: {
+    type: DataTypes.STRING(11),
+    allowNull: true,
+    unique: true,
+    validate: {
+      len: [11, 11],
+      isNumeric: true
+    }
+  },
   ativo: {
     type: DataTypes.BOOLEAN,
     defaultValue: true

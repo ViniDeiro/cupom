@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Loading from '../../components/Loading';
+import CouponPayment from '../../components/CouponPayment';
 import toast from 'react-hot-toast';
 
 function BuyCoupons() {
+  const navigate = useNavigate();
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
 
   useEffect(() => {
     fetchAvailableCoupons();
@@ -78,49 +83,22 @@ function BuyCoupons() {
     }
   };
 
-  const handleBuyCoupon = async (coupon) => {
-    try {
-      const response = await fetch('/api/coupons/comprar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          tipo_cupom_id: coupon.id,
-          forma_pagamento: 'pix'
-        })
-      });
+  const handleBuyCoupon = (coupon) => {
+    setSelectedCoupon(coupon);
+    setShowPayment(true);
+  };
 
-      const result = await response.json();
+  const handlePaymentSuccess = (cupomData) => {
+    setShowPayment(false);
+    setSelectedCoupon(null);
+    toast.success(`Cupom ${cupomData.codigo} comprado com sucesso!`);
+    // Redirecionar para a página de cupons do usuário
+    navigate('/user/my-coupons');
+  };
 
-      if (response.ok) {
-        // Gerar código PIX simulado
-        const pixCode = `00020126580014BR.GOV.BCB.PIX0136${Math.random().toString(36).substring(2, 15)}@pix.com5204000053039865802BR5925Eu Tenho Sonhos Ltda6009SAO PAULO62070503***6304`;
-        
-        toast.success('Cupom reservado! Código PIX gerado.');
-        
-        // Mostrar modal com código PIX
-        const confirmed = window.confirm(
-          `Código PIX para pagamento do cupom:\n\n${pixCode}\n\nValor: R$ ${(coupon.preco || coupon.price).toFixed(2)}\n\nApós o pagamento, seu cupom será ativado automaticamente.\n\nClique OK para copiar o código PIX.`
-        );
-        
-        if (confirmed) {
-          // Tentar copiar para área de transferência
-          try {
-            await navigator.clipboard.writeText(pixCode);
-            toast.success('Código PIX copiado para área de transferência!');
-          } catch (err) {
-            console.log('Erro ao copiar:', err);
-          }
-        }
-      } else {
-        throw new Error(result.erro || 'Erro ao processar compra');
-      }
-    } catch (error) {
-      console.error('Erro ao comprar cupom:', error);
-      toast.error(error.message || 'Erro ao processar compra do cupom');
-    }
+  const handleClosePayment = () => {
+    setShowPayment(false);
+    setSelectedCoupon(null);
   };
 
   if (loading) {
@@ -157,7 +135,7 @@ function BuyCoupons() {
               
               <button
                 onClick={() => handleBuyCoupon(coupon)}
-                className="w-full bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 transition-colors"
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Comprar com PIX
               </button>
@@ -169,6 +147,15 @@ function BuyCoupons() {
           </div>
         )}
       </div>
+
+      {/* Modal de Pagamento */}
+      {showPayment && selectedCoupon && (
+        <CouponPayment
+          couponType={selectedCoupon}
+          onClose={handleClosePayment}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 }

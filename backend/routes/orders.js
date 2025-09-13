@@ -7,32 +7,13 @@ const { sequelize } = require('../config/database');
 const router = express.Router();
 
 // Criar pedido
-router.post('/', authUser, [
-  body('itens').isArray({ min: 1 }).withMessage('Pedido deve ter pelo menos um item'),
-  body('itens.*.produto_id').isUUID().withMessage('ID do produto inválido'),
-  body('itens.*.quantidade').isInt({ min: 1 }).withMessage('Quantidade deve ser maior que zero'),
-  body('cupom_codigo').optional().isString(),
-  body('forma_pagamento').optional().isIn(['pix', 'cartao', 'boleto']).withMessage('Forma de pagamento inválida'),
-  body('endereco_entrega').isObject().withMessage('Endereço de entrega é obrigatório'),
-  body('endereco_entrega.cep').matches(/^\d{5}-?\d{3}$/).withMessage('CEP inválido'),
-  body('endereco_entrega.rua').notEmpty().withMessage('Rua é obrigatória'),
-  body('endereco_entrega.numero').notEmpty().withMessage('Número é obrigatório'),
-  body('endereco_entrega.cidade').notEmpty().withMessage('Cidade é obrigatória'),
-  body('endereco_entrega.estado').notEmpty().withMessage('Estado é obrigatório')
-], async (req, res) => {
+router.post('/', authUser, async (req, res) => {
   const transaction = await sequelize.transaction();
   
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      await transaction.rollback();
-      return res.status(400).json({
-        erro: 'Dados inválidos',
-        detalhes: errors.array()
-      });
-    }
+    console.log('Dados recebidos:', JSON.stringify(req.body, null, 2));
 
-    const { itens, cupom_codigo, forma_pagamento, endereco_entrega, observacoes } = req.body;
+    const { itens, cupom_codigo, forma_pagamento, endereco_entrega = null, observacoes = '' } = req.body;
     const usuario = req.user;
 
     // Verificar se é dia especial para produtos especiais

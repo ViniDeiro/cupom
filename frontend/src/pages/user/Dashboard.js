@@ -13,8 +13,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { couponsAPI, ordersAPI } from '../../utils/api';
-import { formatCurrency, formatDate } from '../../utils/api';
+import { couponsAPI, ordersAPI, formatCurrency, formatDate } from '../../services/apiUtils';
 import Loading from '../../components/Loading';
 
 const Dashboard = () => {

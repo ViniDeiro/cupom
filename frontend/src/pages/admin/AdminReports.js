@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminAPI } from '../../utils/api';
+import { adminAPI } from '../../services/apiUtils';
 import toast from 'react-hot-toast';
 import Loading from '../../components/Loading';
 
@@ -243,7 +243,18 @@ const AdminReports = () => {
 
       {/* Coupon Report */}
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-semibold mb-4">Relatório de Cupons</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Relatório de Cupons</h2>
+          <a 
+            href="/admin/relatorios/cupons" 
+            className="text-primary-600 hover:text-primary-800 transition-colors flex items-center gap-1 text-sm font-medium"
+          >
+            Ver relatório detalhado
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="text-center">
             <div className="text-3xl font-bold text-blue-600">

@@ -1,9 +1,19 @@
 const { MercadoPagoConfig, Payment, Preference } = require('mercadopago');
 const config = require('../config');
 
+// Debug: Verificar credenciais
+console.log('🔑 Verificando credenciais do Mercado Pago:');
+console.log('Config accessToken:', config.mercadoPago?.accessToken ? 'Definido' : 'Não definido');
+console.log('ENV accessToken:', process.env.MERCADO_PAGO_ACCESS_TOKEN ? 'Definido' : 'Não definido');
+
 // Inicializar cliente do Mercado Pago
+const accessToken = config.mercadoPago?.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN;
+if (!accessToken) {
+  console.error('❌ Access Token do Mercado Pago não encontrado!');
+}
+
 const client = new MercadoPagoConfig({
-  accessToken: config.mercadoPago?.accessToken || process.env.MERCADO_PAGO_ACCESS_TOKEN,
+  accessToken: accessToken,
   options: {
     timeout: 5000,
     idempotencyKey: 'abc'
@@ -154,6 +164,7 @@ class PaymentService {
     try {
       const { transaction_amount, description, payer, external_reference } = dadosPix;
       
+      // Código de produção com Mercado Pago real
       const paymentData = {
         transaction_amount: parseFloat(transaction_amount),
         description,

@@ -14,30 +14,28 @@ function MyCoupons() {
 
   const fetchMyCoupons = async () => {
     try {
-      // Simulação de cupons para preview
-      setTimeout(() => {
-        setCoupons([
-          {
-            id: 1,
-            code: 'DESCONTO10',
-            discount: 10,
-            type: 'percentage',
-            status: 'active',
-            expiresAt: '2024-12-31',
-            usedAt: null
-          },
-          {
-            id: 2,
-            code: 'FRETE20',
-            discount: 20,
-            type: 'fixed',
-            status: 'used',
-            expiresAt: '2024-11-30',
-            usedAt: '2024-01-15'
-          }
-        ]);
-        setLoading(false);
-      }, 1000);
+      setLoading(true);
+      const { couponsAPI } = await import('../../services/apiUtils');
+      const response = await couponsAPI.getMyCoupons();
+      console.log('Cupons recebidos da API:', response.data);
+      
+      if (response.data && Array.isArray(response.data)) {
+        // Mapear os dados da API para o formato esperado pelo componente
+        const mappedCoupons = response.data.map(cupom => ({
+          id: cupom.id,
+          code: cupom.codigo,
+          discount: cupom.desconto,
+          type: 'percentage',
+          status: cupom.valido ? (cupom.usado ? 'used' : 'active') : 'expired',
+          expiresAt: cupom.data_validade,
+          usedAt: cupom.data_uso
+        }));
+        
+        setCoupons(mappedCoupons);
+      } else {
+        console.warn('Formato de resposta inesperado:', response.data);
+        setCoupons([]);
+      }
     } catch (error) {
       console.error('Erro ao carregar cupons:', error);
       toast.error('Erro ao carregar cupons');

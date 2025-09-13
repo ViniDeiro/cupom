@@ -19,16 +19,17 @@ import MyCoupons from './pages/user/MyCoupons';
 import BuyCoupons from './pages/user/BuyCoupons';
 import Orders from './pages/user/Orders';
 import Checkout from './pages/user/Checkout';
+import Rastreamento from './pages/user/Rastreamento';
 
 // Páginas do admin
 import AdminLayout from './components/AdminLayout';
-import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminSpecialDays from './pages/admin/AdminSpecialDays';
 import AdminCoupons from './pages/admin/AdminCoupons';
 import AdminReports from './pages/admin/AdminReports';
+import AdminCouponsReport from './pages/admin/AdminCouponsReport';
 
 // Páginas de erro
 import NotFound from './pages/NotFound';
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="produtos" element={<Products />} />
         <Route path="produtos/:id" element={<ProductDetail />} />
         <Route path="sobre" element={<About />} />
+        <Route path="rastreamento" element={<Rastreamento />} />
         
         {/* Rotas de autenticação */}
         <Route path="login" element={<Login />} />
@@ -83,7 +85,6 @@ function AppRoutes() {
 
       {/* Rotas administrativas */}
       <Route path="/admin">
-        <Route path="login" element={<AdminLogin />} />
         <Route path="" element={
           <ProtectedRoute requireAdmin>
             <AdminLayout />
@@ -95,6 +96,7 @@ function AppRoutes() {
           <Route path="dias-especiais" element={<AdminSpecialDays />} />
           <Route path="cupons" element={<AdminCoupons />} />
           <Route path="relatorios" element={<AdminReports />} />
+          <Route path="relatorios/cupons" element={<AdminCouponsReport />} />
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
         </Route>
       </Route>

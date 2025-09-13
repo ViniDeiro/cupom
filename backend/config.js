@@ -25,14 +25,22 @@ module.exports = {
       password: 'admin123'
     },
     mercadoPago: {
-      accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || 'TEST-YOUR-ACCESS-TOKEN-HERE',
-      publicKey: process.env.MERCADO_PAGO_PUBLIC_KEY || 'TEST-YOUR-PUBLIC-KEY-HERE'
+      accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN,
+      publicKey: process.env.MERCADO_PAGO_PUBLIC_KEY,
+      clientId: process.env.MERCADO_PAGO_CLIENT_ID,
+      clientSecret: process.env.MERCADO_PAGO_CLIENT_SECRET
     },
     frontend: {
       url: 'http://localhost:3000'
     },
     backend: {
       url: 'http://localhost:5000'
+    },
+    correios: {
+      empresa: process.env.CORREIOS_EMPRESA || '', // Código da empresa nos Correios (opcional)
+      senha: process.env.CORREIOS_SENHA || '', // Senha da empresa nos Correios (opcional)
+      token: process.env.CORREIOS_TOKEN || '', // Token para rastreamento (opcional)
+      cepOrigem: process.env.CORREIOS_CEP_ORIGEM || '01310-100' // CEP de origem padrão da loja
     }
   }
 };

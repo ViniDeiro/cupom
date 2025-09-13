@@ -13,7 +13,7 @@ import {
   CheckCircle,
   Sparkles
 } from 'lucide-react';
-import { couponsAPI, productsAPI, formatCurrency } from '../utils/api';
+import { couponsAPI, productsAPI, formatCurrency } from '../services/apiUtils';
 import { useAuth } from '../contexts/AuthContext';
 import ProductCard from '../components/ProductCard';
 import Loading from '../components/Loading';

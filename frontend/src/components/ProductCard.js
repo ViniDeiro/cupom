@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShoppingCart, Tag, Clock } from 'lucide-react';
-import { formatCurrency } from '../utils/api';
+import { formatCurrency } from '../services/apiUtils';
 
 const ProductCard = ({ produto, onAddToCart, isSpecialDay = false }) => {
   const {

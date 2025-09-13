@@ -1,3 +1,6 @@
+// Carregar variáveis de ambiente
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -22,13 +25,31 @@ app.use(cors({
   credentials: true
 }));
 
-// Middlewares de parsing
+// Middleware de log para debug
+app.use((req, res, next) => {
+  console.log(`📝 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('📦 Body:', req.body);
+  }
+  next();
+});
+
+// Middlewares básicos
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Middleware de logging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`📝 ${new Date().toISOString()} - ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`📦 Body:`, req.body);
+  }
+  next();
+});
+
+// Middleware para capturar todas as requisições
+app.use('*', (req, res, next) => {
+  console.log(`🔍 Requisição capturada: ${req.method} ${req.originalUrl}`);
   next();
 });
 
@@ -38,9 +59,18 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/coupons', require('./routes/coupons'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/payments', require('./routes/payments'));
+console.log('🔧 Carregando rota coupon-payments...');
+try {
+  const couponPaymentsRouter = require('./routes/couponPayments');
+  app.use('/api/coupon-payments', couponPaymentsRouter);
+  console.log('✅ Rota coupon-payments carregada com sucesso!');
+} catch (error) {
+  console.error('❌ Erro ao carregar rota coupon-payments:', error);
+}
 app.use('/api/config', require('./routes/config'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin', require('./routes/couponTypeRoutes'));
+app.use('/api/correios', require('./routes/correios'));
 
 // Rota de health check
 app.get('/api/health', (req, res) => {
@@ -67,8 +97,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// Middleware de erro 404
+// Middleware de erro 404 - DEVE SER O ÚLTIMO MIDDLEWARE
 app.use('*', (req, res) => {
+  console.log('🚫 404 - Endpoint não encontrado:', req.originalUrl);
   res.status(404).json({
     erro: 'Endpoint não encontrado',
     path: req.originalUrl

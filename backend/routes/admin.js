@@ -1,13 +1,312 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { SpecialDay, User, Coupon, Product, Order } = require('../models');
-const { authAdmin } = require('../middleware/auth');
+const { SpecialDay, User, Coupon, Product, Order, Admin } = require('../models');
+const { authAdmin, requireSuperAdmin } = require('../middleware/auth');
 const emailService = require('../services/emailService');
 const { Op } = require('sequelize');
+const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 
 console.log('🔧 Carregando rotas administrativas...');
+
+// === GESTÃO DE ADMINISTRADORES ===
+
+// Listar administradores (apenas super admin pode ver)
+router.get('/administradores', authAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = '' } = req.query;
+    const offset = (page - 1) * limit;
+
+    const whereClause = {
+      ativo: true
+    };
+
+    if (search) {
+      whereClause[Op.or] = [
+        { nome: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } }
+      ];
+    }
+
+    const { count, rows: administradores } = await Admin.findAndCountAll({
+      where: whereClause,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['createdAt', 'DESC']],
+      attributes: ['id', 'nome', 'email', 'nivel', 'createdAt', 'updatedAt']
+    });
+
+    res.json({
+      administradores,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(count / limit),
+        totalItems: count,
+        itemsPerPage: parseInt(limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Erro ao listar administradores:', error);
+    res.status(500).json({
+      erro: 'Erro interno do servidor'
+    });
+  }
+});
+
+// Criar novo administrador (apenas super admin pode criar)
+router.post('/administradores', authAdmin, requireSuperAdmin, [
+  body('nome').trim().isLength({ min: 2, max: 100 }).withMessage('Nome deve ter entre 2 e 100 caracteres'),
+  body('email').isEmail().withMessage('Email inválido'),
+  body('senha').isLength({ min: 6 }).withMessage('Senha deve ter pelo menos 6 caracteres'),
+  body('nivel').isIn(['admin', 'super']).withMessage('Nível deve ser admin ou super')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        erro: 'Dados inválidos',
+        detalhes: errors.array()
+      });
+    }
+
+    const { nome, email, senha, nivel } = req.body;
+
+    // Verificar se já existe um admin com este email
+    const adminExistente = await Admin.findOne({ where: { email } });
+    if (adminExistente) {
+      return res.status(400).json({
+        erro: 'Já existe um administrador com este email'
+      });
+    }
+
+    // Criar novo administrador
+    const novoAdmin = await Admin.create({
+      nome,
+      email,
+      senha, // O hook beforeCreate no modelo Admin vai criptografar a senha
+      nivel
+    });
+
+    // Remover a senha do objeto de resposta
+    const adminResponse = novoAdmin.toJSON();
+
+    res.status(201).json({
+      mensagem: 'Administrador criado com sucesso',
+      admin: adminResponse
+    });
+
+  } catch (error) {
+    console.error('Erro ao criar administrador:', error);
+    res.status(500).json({
+      erro: 'Erro interno do servidor'
+    });
+  }
+});
+
+// Promover usuário para administrador (apenas super admin pode promover)
+router.post('/promover-usuario/:id', authAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    // Verificar se o usuário existe
+    const usuario = await User.findByPk(userId);
+    if (!usuario) {
+      return res.status(404).json({
+        erro: 'Usuário não encontrado'
+      });
+    }
+
+    // Verificar se já existe um admin com este email
+    const adminExistente = await Admin.findOne({ where: { email: usuario.email } });
+    if (adminExistente) {
+      return res.status(400).json({
+        erro: 'Este usuário já é um administrador'
+      });
+    }
+
+    // Criar um novo administrador com os dados do usuário
+    // Gerar uma senha temporária aleatória
+    const senhaTemporaria = Math.random().toString(36).slice(-8);
+    const senhaHash = await bcrypt.hash(senhaTemporaria, 12);
+
+    const novoAdmin = await Admin.create({
+      nome: usuario.nome,
+      email: usuario.email,
+      senha: senhaHash,
+      nivel: 'admin' // Promovido como admin normal, não super
+    });
+
+    // Enviar email com a senha temporária (em um ambiente real)
+    // await emailService.enviarEmail({
+    //   para: usuario.email,
+    //   assunto: 'Você foi promovido a administrador',
+    //   texto: `Você foi promovido a administrador. Sua senha temporária é: ${senhaTemporaria}. Por favor, altere-a após o primeiro login.`
+    // });
+
+    res.json({
+      mensagem: 'Usuário promovido a administrador com sucesso',
+      admin: {
+        id: novoAdmin.id,
+        nome: novoAdmin.nome,
+        email: novoAdmin.email,
+        nivel: novoAdmin.nivel
+      },
+      senha_temporaria: senhaTemporaria // Em produção, isso seria enviado apenas por email
+    });
+
+  } catch (error) {
+    console.error('Erro ao promover usuário:', error);
+    res.status(500).json({
+      erro: 'Erro interno do servidor'
+    });
+  }
+});
+
+// Alterar nível de administrador (apenas super admin pode alterar)
+router.put('/administradores/:id/nivel', authAdmin, requireSuperAdmin, [
+  body('nivel').isIn(['admin', 'super']).withMessage('Nível deve ser admin ou super')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        erro: 'Dados inválidos',
+        detalhes: errors.array()
+      });
+    }
+
+    const adminId = req.params.id;
+    const { nivel } = req.body;
+
+    // Verificar se o admin existe
+    const admin = await Admin.findByPk(adminId);
+    if (!admin) {
+      return res.status(404).json({
+        erro: 'Administrador não encontrado'
+      });
+    }
+
+    // Impedir que um super admin rebaixe a si mesmo
+    if (admin.id === req.admin.id && nivel === 'admin') {
+      return res.status(400).json({
+        erro: 'Você não pode rebaixar seu próprio nível'
+      });
+    }
+
+    // Atualizar o nível
+    await admin.update({ nivel });
+
+    res.json({
+      mensagem: `Administrador ${nivel === 'super' ? 'promovido a super administrador' : 'rebaixado para administrador normal'} com sucesso`,
+      admin: {
+        id: admin.id,
+        nome: admin.nome,
+        email: admin.email,
+        nivel: admin.nivel
+      }
+    });
+
+  } catch (error) {
+    console.error('Erro ao alterar nível de administrador:', error);
+    res.status(500).json({
+      erro: 'Erro interno do servidor'
+    });
+  }
+});
+
+// Remover privilégios de administrador (apenas super admin pode remover)
+router.delete('/administradores/:id', authAdmin, requireSuperAdmin, async (req, res) => {
+  try {
+    const adminId = req.params.id;
+
+    // Verificar se o admin existe
+    const admin = await Admin.findByPk(adminId);
+    if (!admin) {
+      return res.status(404).json({
+        erro: 'Administrador não encontrado'
+      });
+    }
+
+    // Impedir que um super admin remova a si mesmo
+    if (admin.id === req.admin.id) {
+      return res.status(400).json({
+        erro: 'Você não pode remover seus próprios privilégios'
+      });
+    }
+
+    // Desativar o admin (soft delete)
+    await admin.update({ ativo: false });
+
+    res.json({
+      mensagem: 'Privilégios de administrador removidos com sucesso'
+    });
+
+  } catch (error) {
+    console.error('Erro ao remover administrador:', error);
+    res.status(500).json({
+      erro: 'Erro interno do servidor'
+    });
+  }
+});
+
+// Criar super administrador (rota pública, mas só funciona se não existir nenhum super admin)
+router.post('/criar-super-admin', [
+  body('nome').trim().isLength({ min: 2, max: 100 }).withMessage('Nome deve ter entre 2 e 100 caracteres'),
+  body('email').isEmail().withMessage('Email inválido'),
+  body('senha').isLength({ min: 6 }).withMessage('Senha deve ter pelo menos 6 caracteres')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        erro: 'Dados inválidos',
+        detalhes: errors.array()
+      });
+    }
+
+    // Verificar se já existe algum super admin
+    const superAdminExistente = await Admin.findOne({ where: { nivel: 'super', ativo: true } });
+    if (superAdminExistente) {
+      return res.status(400).json({
+        erro: 'Já existe um super administrador no sistema'
+      });
+    }
+
+    const { nome, email, senha } = req.body;
+
+    // Verificar se já existe um admin com este email
+    const adminExistente = await Admin.findOne({ where: { email } });
+    if (adminExistente) {
+      return res.status(400).json({
+        erro: 'Já existe um administrador com este email'
+      });
+    }
+
+    // Criar super admin
+    const superAdmin = await Admin.create({
+      nome,
+      email,
+      senha, // O hook beforeCreate no modelo Admin vai criptografar a senha
+      nivel: 'super'
+    });
+
+    // Remover a senha do objeto de resposta
+    const adminResponse = superAdmin.toJSON();
+
+    res.status(201).json({
+      mensagem: 'Super administrador criado com sucesso',
+      admin: adminResponse
+    });
+
+  } catch (error) {
+    console.error('Erro ao criar super administrador:', error);
+    res.status(500).json({
+      erro: 'Erro interno do servidor'
+    });
+  }
+});
 
 // === GESTÃO DE DIAS ESPECIAIS ===
 
@@ -495,44 +794,56 @@ router.get('/dashboard', authAdmin, async (req, res) => {
 // Listar tipos de cupons
 router.get('/tipos-cupons', authAdmin, async (req, res) => {
   try {
-    const tiposCupons = [
-      {
-        id: 1,
-        nome: 'Cupom Bronze',
-        desconto: 10,
-        preco: 25.00,
-        descricao: 'Desconto de 10% em produtos selecionados',
-        validade_dias: 90,
-        ativo: true
-      },
-      {
-        id: 2,
-        nome: 'Cupom Prata',
-        desconto: 20,
-        preco: 45.00,
-        descricao: 'Desconto de 20% em produtos selecionados',
-        validade_dias: 90,
-        ativo: true
-      },
-      {
-        id: 3,
-        nome: 'Cupom Ouro',
-        desconto: 30,
-        preco: 65.00,
-        descricao: 'Desconto de 30% em produtos selecionados',
-        validade_dias: 90,
-        ativo: true
-      },
-      {
-        id: 4,
-        nome: 'Cupom Diamante',
-        desconto: 50,
-        preco: 100.00,
-        descricao: 'Desconto de 50% em produtos selecionados',
-        validade_dias: 90,
-        ativo: true
-      }
-    ];
+    const { CouponType } = require('../models');
+    
+    let tiposCupons = await CouponType.findAll({
+      order: [['desconto', 'ASC']]
+    });
+    
+    // Se não existirem tipos de cupons, criar os padrões
+    if (tiposCupons.length === 0) {
+      const tiposPadrao = [
+        {
+          nome: 'Cupom Bronze',
+          desconto: 10,
+          preco: 25.00,
+          descricao: 'Desconto de 10% em produtos selecionados',
+          validade_dias: 90,
+          ativo: true
+        },
+        {
+          nome: 'Cupom Prata',
+          desconto: 20,
+          preco: 45.00,
+          descricao: 'Desconto de 20% em produtos selecionados',
+          validade_dias: 90,
+          ativo: true
+        },
+        {
+          nome: 'Cupom Ouro',
+          desconto: 30,
+          preco: 65.00,
+          descricao: 'Desconto de 30% em produtos selecionados',
+          validade_dias: 90,
+          ativo: true
+        },
+        {
+          nome: 'Cupom Diamante',
+          desconto: 50,
+          preco: 100.00,
+          descricao: 'Desconto de 50% em produtos selecionados',
+          validade_dias: 90,
+          ativo: true
+        }
+      ];
+      
+      await CouponType.bulkCreate(tiposPadrao);
+      
+      // Buscar novamente após criar
+      tiposCupons = await CouponType.findAll({
+        order: [['desconto', 'ASC']]
+      });
+    }
 
     res.json(tiposCupons);
   } catch (error) {
@@ -560,13 +871,12 @@ router.post('/tipos-cupons', authAdmin, [
       });
     }
 
-    // Por enquanto, retornamos sucesso simulado
-    // Em uma implementação real, salvaria no banco de dados
-    const novoTipo = {
-      id: Date.now(), // ID temporário
+    const { CouponType } = require('../models');
+    
+    const novoTipo = await CouponType.create({
       ...req.body,
       ativo: true
-    };
+    });
 
     res.status(201).json({
       mensagem: 'Tipo de cupom criado com sucesso!',
@@ -599,15 +909,22 @@ router.put('/tipos-cupons/:id', authAdmin, [
     }
 
     const { id } = req.params;
-    
-    // Por enquanto, retornamos sucesso simulado
-    // Em uma implementação real, atualizaria no banco de dados
+    const { CouponType } = require('../models');
+
+    // Verificar se o tipo de cupom existe
+    const tipoCupom = await CouponType.findByPk(id);
+    if (!tipoCupom) {
+      return res.status(404).json({
+        erro: 'Tipo de cupom não encontrado'
+      });
+    }
+
+    // Atualizar o tipo de cupom
+    await tipoCupom.update(req.body);
+
     res.json({
       mensagem: 'Tipo de cupom atualizado com sucesso!',
-      tipo: {
-        id: parseInt(id),
-        ...req.body
-      }
+      tipo: tipoCupom
     });
 
   } catch (error) {
@@ -622,9 +939,30 @@ router.put('/tipos-cupons/:id', authAdmin, [
 router.delete('/tipos-cupons/:id', authAdmin, async (req, res) => {
   try {
     const { id } = req.params;
+    const { CouponType } = require('../models');
+
+    // Verificar se o tipo de cupom existe
+    const tipoCupom = await CouponType.findByPk(id);
+    if (!tipoCupom) {
+      return res.status(404).json({
+        erro: 'Tipo de cupom não encontrado'
+      });
+    }
+
+    // Verificar se há cupons associados a este tipo
+    const { Coupon } = require('../models');
+    const cuponsAssociados = await Coupon.count({ where: { tipo_id: id } });
     
-    // Por enquanto, retornamos sucesso simulado
-    // Em uma implementação real, deletaria do banco de dados
+    if (cuponsAssociados > 0) {
+      return res.status(400).json({
+        erro: 'Não é possível excluir este tipo de cupom pois existem cupons associados a ele',
+        cupons: cuponsAssociados
+      });
+    }
+
+    // Excluir o tipo de cupom
+    await tipoCupom.destroy();
+
     res.json({
       mensagem: 'Tipo de cupom deletado com sucesso!'
     });
