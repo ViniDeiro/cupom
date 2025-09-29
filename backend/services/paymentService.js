@@ -15,8 +15,7 @@ if (!accessToken) {
 const client = new MercadoPagoConfig({
   accessToken: accessToken,
   options: {
-    timeout: 5000,
-    idempotencyKey: 'abc'
+    timeout: 5000
   }
 });
 
@@ -164,6 +163,14 @@ class PaymentService {
     try {
       const { transaction_amount, description, payer, external_reference } = dadosPix;
       
+      console.log('🏦 PAYMENT SERVICE - Dados recebidos:', JSON.stringify(dadosPix, null, 2));
+      console.log('🏦 PAYMENT SERVICE - transaction_amount original:', transaction_amount);
+      console.log('🏦 PAYMENT SERVICE - transaction_amount parseFloat:', parseFloat(transaction_amount));
+      
+      // Gerar chave de idempotência única para evitar reutilização de pagamentos
+      const idempotencyKey = `pix-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      console.log('🔑 PAYMENT SERVICE - Chave de idempotência:', idempotencyKey);
+      
       // Código de produção com Mercado Pago real
       const paymentData = {
         transaction_amount: parseFloat(transaction_amount),
@@ -180,12 +187,24 @@ class PaymentService {
         },
         external_reference
       };
+      
+      console.log('🏦 PAYMENT SERVICE - Dados enviados ao MP:', JSON.stringify(paymentData, null, 2));
 
-      const result = await payment.create({ body: paymentData });
+      // Adicionar chave de idempotência no cabeçalho da requisição
+      const result = await payment.create({ 
+        body: paymentData,
+        requestOptions: {
+          idempotencyKey: idempotencyKey
+        }
+      });
+      
+      console.log('✅ PAYMENT SERVICE - Pagamento criado com sucesso:', result.id);
+      console.log('💰 PAYMENT SERVICE - Valor do pagamento:', result.transaction_amount);
       
       return {
         id: result.id,
         status: result.status,
+        transaction_amount: result.transaction_amount,
         qr_code: result.point_of_interaction?.transaction_data?.qr_code,
         qr_code_base64: result.point_of_interaction?.transaction_data?.qr_code_base64,
         ticket_url: result.point_of_interaction?.transaction_data?.ticket_url

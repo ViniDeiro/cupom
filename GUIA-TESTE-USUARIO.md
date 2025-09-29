@@ -100,7 +100,7 @@ Ao final do teste, você deve ter:
 
 **🎯 Foco Principal**: O envio automático de email após a compra do cupom!
 
-**📧 Email configurado**: viniciusdeirolopes@gmail.com
+**📧 Email configurado**: eutenhosonhos5@gmail.com
 **🔑 Autenticação**: App Password configurada
 **✅ Status**: Sistema 100% operacional
 

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, XCircle, AlertCircle, CreditCard } from 'lucide-react';
 import toast from 'react-hot-toast';
+import SuccessAnimation from './SuccessAnimation';
 
 const PaymentStatus = ({ pedidoId, onStatusUpdate }) => {
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [previousStatus, setPreviousStatus] = useState(null);
 
   const checkPaymentStatus = async () => {
     if (!pedidoId) return;
@@ -20,6 +23,14 @@ const PaymentStatus = ({ pedidoId, onStatusUpdate }) => {
 
       if (response.ok) {
         const data = await response.json();
+        
+        // Verificar se o status mudou para aprovado
+        if (previousStatus && previousStatus !== 'approved' && data.status === 'approved') {
+          setShowSuccessAnimation(true);
+          toast.success('Pagamento aprovado!');
+        }
+        
+        setPreviousStatus(paymentStatus?.status);
         setPaymentStatus(data);
         setLastChecked(new Date());
         
@@ -133,6 +144,16 @@ const PaymentStatus = ({ pedidoId, onStatusUpdate }) => {
         <CreditCard size={24} className="text-gray-600" />
         <h3 className="text-lg font-semibold text-gray-900">Status do Pagamento</h3>
       </div>
+
+      {showSuccessAnimation && (
+        <div className="mb-6">
+          <SuccessAnimation 
+            title="Pagamento Aprovado!"
+            subtitle="Seu pedido foi confirmado com sucesso!"
+            onComplete={() => setShowSuccessAnimation(false)}
+          />
+        </div>
+      )}
 
       {loading && !paymentStatus ? (
         <div className="flex items-center justify-center py-8">

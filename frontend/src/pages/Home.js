@@ -44,7 +44,7 @@ const Home = () => {
   // Buscar tipos de cupons
   const { data: couponTypesData } = useQuery(
     'couponTypes',
-    couponsAPI.getCouponTypes,
+    couponsAPI.getTypes,
     {
       staleTime: 30 * 60 * 1000
     }

@@ -23,6 +23,7 @@ import Rastreamento from './pages/user/Rastreamento';
 
 // Páginas do admin
 import AdminLayout from './components/AdminLayout';
+import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminOrders from './pages/admin/AdminOrders';
@@ -85,6 +86,7 @@ function AppRoutes() {
 
       {/* Rotas administrativas */}
       <Route path="/admin">
+        <Route path="login" element={<AdminLogin />} />
         <Route path="" element={
           <ProtectedRoute requireAdmin>
             <AdminLayout />

@@ -74,7 +74,12 @@ export const adminAPI = {
   getUsers: () => api.get('/admin/users'),
   getReports: () => api.get('/admin/reports'),
   getCouponsReport: () => api.get('/admin/coupons-report'),
-  getOrdersReport: () => api.get('/admin/orders-report')
+  getOrdersReport: () => api.get('/admin/orders-report'),
+  // Funções para tipos de cupons
+  getCouponTypes: () => api.get('/admin/tipos-cupons'),
+  createCouponType: (data) => api.post('/admin/tipos-cupons', data),
+  updateCouponType: (id, data) => api.put(`/admin/tipos-cupons/${id}`, data),
+  deleteCouponType: (id) => api.delete(`/admin/tipos-cupons/${id}`)
 };
 
 

@@ -89,6 +89,8 @@ router.post('/buy-coupon-pix', (req, res, next) => {
     console.log('=== DEBUG COMPRA CUPOM ===');
     console.log('Dados recebidos:', { tipo_cupom_id, cpfFornecido });
     console.log('Usuário atual:', { id: usuario.id, nome: usuario.nome, cpf: usuario.cpf });
+    console.log('Tipo cupom ID (tipo):', typeof tipo_cupom_id);
+    console.log('Dados completos do body:', JSON.stringify(req.body, null, 2));
     console.log('========================');
 
     // Se CPF foi fornecido na requisição, validar e usar
@@ -185,6 +187,10 @@ router.post('/buy-coupon-pix', (req, res, next) => {
 
     // Preparar dados do PIX
     const timestamp = Date.now();
+    console.log('💰 VALOR DO CUPOM PARA PIX:', tipoCupom.preco);
+    console.log('💰 TIPO DO VALOR:', typeof tipoCupom.preco);
+    console.log('💰 DADOS COMPLETOS DO TIPO CUPOM:', JSON.stringify(tipoCupom, null, 2));
+    
     const dadosPix = {
       transaction_amount: tipoCupom.preco,
       description: `Cupom ${tipoCupom.nome} - ${codigo} - ${timestamp}`,
@@ -199,6 +205,8 @@ router.post('/buy-coupon-pix', (req, res, next) => {
       },
       external_reference: `${cupom.id}-${timestamp}`
     };
+    
+    console.log('💳 DADOS DO PIX PREPARADOS:', JSON.stringify(dadosPix, null, 2));
 
     // Gerar PIX
     const resultado = await paymentService.gerarPix(dadosPix);
@@ -231,6 +239,145 @@ router.post('/buy-coupon-pix', (req, res, next) => {
   } catch (error) {
     await transaction.rollback();
     console.error('Erro ao comprar cupom com PIX:', error);
+    res.status(500).json({
+      erro: 'Erro ao processar compra do cupom'
+    });
+  }
+});
+
+// Comprar cupom com cartão de crédito
+router.post('/buy-coupon-card', authUser, [
+  body('tipo_cupom_id').isInt({ min: 1 }).withMessage('Tipo de cupom inválido'),
+  body('cpf').optional().isString().withMessage('CPF deve ser uma string'),
+  body('token').notEmpty().withMessage('Token do cartão é obrigatório'),
+  body('payment_method_id').notEmpty().withMessage('Método de pagamento é obrigatório'),
+  body('installments').optional().isInt({ min: 1, max: 12 }).withMessage('Parcelas inválidas')
+], async (req, res) => {
+  console.log('💳 Requisição de compra com cartão recebida:', req.body);
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('❌ Erro de validação:', errors.array());
+      await transaction.rollback();
+      return res.status(400).json({
+        erro: 'Dados inválidos',
+        detalhes: errors.array()
+      });
+    }
+
+    const { tipo_cupom_id, cpf: cpfFornecido, token, payment_method_id, installments = 1 } = req.body;
+    let usuario = req.user;
+    let cpfParaUsar = usuario.cpf;
+
+    // Se CPF foi fornecido na requisição, validar e usar
+    if (cpfFornecido) {
+      const cpfLimpo = cpfFornecido.replace(/\D/g, '');
+      
+      if (!isValidCPF(cpfLimpo)) {
+        await transaction.rollback();
+        return res.status(400).json({
+          erro: 'CPF inválido'
+        });
+      }
+      
+      cpfParaUsar = cpfLimpo;
+    }
+
+    // Verificar se o tipo de cupom existe
+    const tipoCupom = await CouponType.findByPk(tipo_cupom_id);
+    if (!tipoCupom) {
+      await transaction.rollback();
+      return res.status(404).json({
+        erro: 'Tipo de cupom não encontrado'
+      });
+    }
+
+    // Gerar código único para o cupom
+    const timestamp = Date.now();
+    const codigoCupom = `CUP${timestamp}`;
+
+    // Criar cupom
+    const cupom = await Coupon.create({
+      codigo: codigoCupom,
+      tipo_cupom_id: tipo_cupom_id,
+      usuario_id: usuario.id,
+      desconto_percentual: tipoCupom.desconto_percentual,
+      valor_pago: tipoCupom.preco,
+      data_validade: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 ano
+      ativo: false,
+      status_pagamento: 'pendente',
+      cpf_beneficiario: cpfParaUsar
+    }, { transaction });
+
+    // Preparar dados para pagamento com cartão
+    const dadosPagamento = {
+      token,
+      transaction_amount: tipoCupom.preco,
+      description: `Cupom ${tipoCupom.nome} - ${tipoCupom.desconto_percentual}% desconto`,
+      payment_method_id,
+      installments,
+      payer: {
+        email: usuario.email,
+        identification: {
+          type: 'CPF',
+          number: cpfParaUsar
+        }
+      },
+      external_reference: `${cupom.id}-${timestamp}`
+    };
+
+    console.log('💳 DADOS DO CARTÃO PREPARADOS:', JSON.stringify(dadosPagamento, null, 2));
+
+    // Processar pagamento com cartão
+    const resultado = await paymentService.processarPagamento(dadosPagamento);
+
+    // Atualizar cupom com informações do pagamento
+    await cupom.update({
+      mercado_pago_payment_id: resultado.id
+    }, { transaction });
+
+    // Se o pagamento foi aprovado imediatamente, ativar cupom e enviar email
+    if (resultado.status === 'approved') {
+      await cupom.update({
+        status_pagamento: 'aprovado',
+        ativo: true
+      }, { transaction });
+
+      // Enviar email com o cupom
+      const emailService = require('../services/emailService');
+      const resultadoEmail = await emailService.enviarCupom(usuario, cupom);
+      
+      if (resultadoEmail.sucesso) {
+        console.log(`📧 Email enviado com sucesso para ${usuario.email}`);
+      } else {
+        console.error('❌ Erro ao enviar email:', resultadoEmail.erro);
+      }
+    }
+
+    await transaction.commit();
+
+    res.json({
+      cupom: {
+        id: cupom.id,
+        codigo: cupom.codigo,
+        tipo: tipoCupom.nome,
+        desconto: cupom.desconto_percentual,
+        valor: cupom.valor_pago,
+        validade: cupom.data_validade
+      },
+      pagamento: {
+        payment_id: resultado.id,
+        status: resultado.status,
+        status_detail: resultado.status_detail,
+        transaction_amount: resultado.transaction_amount
+      }
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Erro ao comprar cupom com cartão:', error);
     res.status(500).json({
       erro: 'Erro ao processar compra do cupom'
     });

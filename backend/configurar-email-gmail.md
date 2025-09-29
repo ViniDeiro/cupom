@@ -27,7 +27,7 @@ email: {
   port: 587,
   secure: false,
   auth: {
-    user: 'viniciusdeirolopes@gmail.com',
+    user: 'eutenhosonhos5@gmail.com',
     pass: 'abcd efgh ijkl mnop'  // ← Cole aqui a senha de app gerada
   }
 }

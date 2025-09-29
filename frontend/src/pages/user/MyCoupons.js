@@ -16,7 +16,7 @@ function MyCoupons() {
     try {
       setLoading(true);
       const { couponsAPI } = await import('../../services/apiUtils');
-      const response = await couponsAPI.getMyCoupons();
+      const response = await couponsAPI.getUserCoupons();
       console.log('Cupons recebidos da API:', response.data);
       
       if (response.data && Array.isArray(response.data)) {

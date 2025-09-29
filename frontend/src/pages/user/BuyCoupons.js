@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Loading from '../../components/Loading';
-import CouponPayment from '../../components/CouponPayment';
+import PaymentMethodSelector from '../../components/PaymentMethodSelector';
 import toast from 'react-hot-toast';
 
 function BuyCoupons() {
@@ -20,7 +20,7 @@ function BuyCoupons() {
       const token = localStorage.getItem('token');
       console.log('Token encontrado:', !!token);
       
-      const response = await fetch('/api/coupons/tipos', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/coupons/tipos`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -33,52 +33,15 @@ function BuyCoupons() {
         console.log('Dados recebidos da API:', data);
         setCoupons(data);
       } else {
-        console.log('Erro na resposta da API, usando dados simulados');
-        // Fallback para dados simulados se a API não estiver disponível
-        setCoupons([
-          {
-            id: 1,
-            nome: 'Cupom Bronze - 10% OFF',
-            descricao: 'Desconto de 10% em produtos selecionados',
-            desconto: 10,
-            tipo: 'porcentagem',
-            preco: 25.00,
-            validade_dias: 90
-          },
-          {
-            id: 2,
-            nome: 'Cupom Prata - 15% OFF',
-            descricao: 'Desconto de 15% em produtos selecionados',
-            desconto: 15,
-            tipo: 'porcentagem',
-            preco: 50.00,
-            validade_dias: 60
-          },
-          {
-            id: 3,
-            nome: 'Cupom Ouro - 20% OFF',
-            descricao: 'Desconto de 20% em produtos selecionados',
-            desconto: 20,
-            tipo: 'porcentagem',
-            preco: 75.00,
-            validade_dias: 45
-          },
-          {
-            id: 4,
-            nome: 'Cupom Diamante - 25% OFF',
-            descricao: 'Desconto de 25% em produtos selecionados',
-            desconto: 25,
-            tipo: 'porcentagem',
-            preco: 100.00,
-            validade_dias: 30
-          }
-        ]);
+        console.error('Erro ao carregar cupons da API');
+        toast.error('Erro ao carregar cupons disponíveis');
+        setCoupons([]);
       }
       setLoading(false);
     } catch (error) {
       console.error('Erro ao carregar cupons:', error);
       toast.error('Erro ao carregar cupons');
-      setCoupons([]); // Garantir que coupons seja sempre um array
+      setCoupons([]);
       setLoading(false);
     }
   };
@@ -137,7 +100,7 @@ function BuyCoupons() {
                 onClick={() => handleBuyCoupon(coupon)}
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Comprar com PIX
+                Comprar Cupom
               </button>
             </div>
           ))
@@ -150,7 +113,7 @@ function BuyCoupons() {
 
       {/* Modal de Pagamento */}
       {showPayment && selectedCoupon && (
-        <CouponPayment
+        <PaymentMethodSelector
           couponType={selectedCoupon}
           onClose={handleClosePayment}
           onSuccess={handlePaymentSuccess}

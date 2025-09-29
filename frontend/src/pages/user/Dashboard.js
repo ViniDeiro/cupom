@@ -33,7 +33,7 @@ const Dashboard = () => {
   // Buscar cupons do usuário
   const { data: couponsData, isLoading: couponsLoading } = useQuery(
     'userCoupons',
-    couponsAPI.getMyCoupons,
+    couponsAPI.getUserCoupons,
     {
       staleTime: 2 * 60 * 1000
     }
@@ -42,7 +42,7 @@ const Dashboard = () => {
   // Buscar pedidos recentes
   const { data: ordersData, isLoading: ordersLoading } = useQuery(
     'userOrders',
-    () => ordersAPI.getMyOrders({ limit: 5 }),
+    () => ordersAPI.getUserOrders({ limit: 5 }),
     {
       staleTime: 2 * 60 * 1000
     }

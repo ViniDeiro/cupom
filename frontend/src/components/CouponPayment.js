@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { QRCodeSVG as QRCode } from 'qrcode.react';
+import SuccessAnimation from './SuccessAnimation';
 
 const CouponPayment = ({ couponType, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -194,15 +195,16 @@ const CouponPayment = ({ couponType, onClose, onSuccess }) => {
         ) : (
           <div>
             {paymentStatus === 'approved' ? (
-              <div className="text-center">
-                <div className="text-green-600 text-6xl mb-4">✓</div>
-                <h3 className="text-xl font-bold text-green-600 mb-2">
-                  Pagamento Aprovado!
-                </h3>
-                <p className="text-gray-600">
-                  Seu cupom foi ativado com sucesso!
-                </p>
-              </div>
+              <SuccessAnimation 
+                title="Pagamento Aprovado!"
+                subtitle="Seu cupom foi ativado com sucesso!"
+                onComplete={() => {
+                  // Fechar modal após 3 segundos
+                  setTimeout(() => {
+                    onClose();
+                  }, 1000);
+                }}
+              />
             ) : paymentStatus === 'rejected' ? (
               <div className="text-center">
                 <div className="text-red-600 text-6xl mb-4">✗</div>
