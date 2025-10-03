@@ -7,8 +7,9 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm start",
-    "build": "cd frontend && npm run build",
-    "start": "cd backend && npm start"
+    "build": "npm install && cd frontend && npm install && npm run build",
+    "start": "cd backend && npm start",
+    "vercel-build": "cd frontend && npm install && npm run build"
   },
   "keywords": ["ecommerce", "cupons", "nodejs", "react"],
   "author": "",
